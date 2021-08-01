@@ -3,11 +3,11 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "dynamix.file.integrity">
 <!ENTITY author    "Bergware">
-<!ENTITY version   "2020.06.21">
+<!ENTITY version   "2021.08.01">
 <!ENTITY launch    "Settings/FileIntegrity">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/bergware/dynamix/master/unRAIDv6/&name;.plg">
 <!ENTITY source    "/boot/config/plugins/&name;/&name;">
-<!ENTITY MD5       "0c2a39f5724b3c0529aec14469b1ea8b">
+<!ENTITY MD5       "TODO">
 ]>
 
 <PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" pluginURL="&pluginURL;" min="6.1.9">
@@ -16,6 +16,9 @@
 ##&name;
 
 ###&version;
+- added blake3 hash support for 2-6 times more hash rate throughput than blake2
+
+###2020.06.21
 - fixed regression error
 
 ###2020.06.20
@@ -319,6 +322,8 @@ if [[ -z $method ]]; then
   hash=sha256
 elif [[ $method == -b2 ]]; then
   hash=blake2
+elif [[ $method == -b3 ]]; then
+  hash=blake3
 else
   hash=md5
 fi
@@ -466,6 +471,11 @@ exit 0
 <!-- B2SUM PACKAGE (prepared by Bergware) -->
 <FILE Name="/boot/packages/b2sum-20130305-x86_64-1.txz" Run="upgradepkg --install-new" Max="6.3.9">
 <URL>https://raw.githubusercontent.com/bergware/dynamix/master/archive/b2sum-20130305-x86_64-1.txz</URL>
+</FILE>
+
+<!-- B2SUM PACKAGE (prepared by falcosc) -->
+<FILE Name="/boot/packages/b3sum-1.0.0-x86_64-1.txz" Run="upgradepkg --install-new">
+<URL>https://raw.githubusercontent.com/bergware/dynamix/master/archive/b3sum-1.0.0-x86_64-1.txz</URL>
 </FILE>
 
 <!-- SOURCE PACKAGE -->
