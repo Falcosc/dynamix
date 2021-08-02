@@ -181,7 +181,7 @@ update() {
 
 # Prepare loop variables
 prepare() {
-  index=0; count=0; past=-1; skip=0; fail=0; bad=0; warning=0; complete=0; key=0; update=$(($con+$mon)); total=1; name=$(($code+2))
+  index=0; count=0; past=-1; skip=0; fail=0; bad=0; warning=0; complete=0; key=0; update=$(($con+$mon)); total=1
   ifs=$IFS; IFS=','
   if [[ $not -eq 0 ]]; then
     if [[ $1 -gt 0 ]]; then
@@ -544,10 +544,7 @@ a|A)
       ((index++))
       [[ $update -ne 0 ]] && progress "Currently processing file $index of $files" $index
       calculate_hash_and_filestat
-      setfattr -n user.$hash -v "$key" "$file"
-      setfattr -n user.scandate -v "$scandate" "$file"
-      setfattr -n user.filedate -v "$filedate" "$file"
-      setfattr -n user.filesize -v "$filesize" "$file"
+      setfattr -n user.$hash -v "$key $filesize $filedate $scandate" "$file"
       [[ $cmd == A ]] && echo "$key *$file" >>$tmpfile.2
       [[ $timer -ne $SECONDS ]] && update
     done <$tmpfile
@@ -587,35 +584,34 @@ v|V|u)
     while read -r line; do
       ((index++))
       [[ $update -ne 0 ]] && progress "Currently processing file $index of $files. Skipped: $skip files. Found: $warning mismatches, $bad corruptions" $index
-      file="${line:$name}"
-      userdate=$(getfattr -n user.scandate --only-values --absolute-names "$file" 2>/dev/null)
+      file="${line#*\*}"
+      declare -a attributes=(${line%% \**})
+      userdate=${attributes[3]}
       if [[ -z $userdate || $((userdate/86400)) -le $epoch ]]; then
-        [[ $cmd != v ]] && setfattr -n user.scandate -v "$scandate" "$file"
         calculate_hash_and_filestat
         ((count++))
-        if [[ $key != ${line:0:$code} ]]; then
-          filedato=$(getfattr -n user.filedate --only-values --absolute-names "$file" 2>/dev/null)
-          filesizo=$(getfattr -n user.filesize --only-values --absolute-names "$file" 2>/dev/null)
+        if [[ $key != ${attributes[0]} || ${#attributes[@]} -ne 4  ]]; then #only 4 value attribute format is valid (key, size, filedate, scandate)
+          filedato=${attributes[2]}
+          filesizo=${attributes[1]}
           ((fail++))
           if [[ $filedato -ne $filedate || $filesizo -ne $filesize ]]; then
             ((warning++))
             if [[ $cmd != v ]]; then
-              setfattr -n user.$hash -v "$key" "$file"
-              setfattr -n user.filedate -v "$filedate" "$file"
-              setfattr -n user.filesize -v "$filesize" "$file"
+              setfattr -n user.$hash -v "$key $filesize $filedate $scandate" "$file"
             fi
             echo "${hash^^} hash key mismatch$text1, $file was modified" >>$tmpfile.3
             log "warning: ${hash^^} hash key mismatch$text1, $file was modified" 1
           else
             ((bad++))
             if [[ $cmd == u ]]; then
-              setfattr -n user.$hash -v "$key" "$file"
-              setfattr -n user.filedate -v "$filedate" "$file"
-              setfattr -n user.filesize -v "$filesize" "$file"
+              setfattr -n user.$hash -v "$key $filesize $filedate $scandate" "$file"
             fi
             echo "${hash^^} hash key mismatch, $file is corrupted" >>$tmpfile.2
             log "error: ${hash^^} hash key mismatch, $file is corrupted" 1
           fi
+        else #key is still valid and we have 4 attributes
+          # update scandate
+          [[ $cmd != v ]] && setfattr -n user.$hash -v "${attributes[0]} ${attributes[1]} ${attributes[2]} $scandate" "$file"
         fi
       else
         ((skip++))
@@ -691,17 +687,14 @@ i)
     while read -r line; do
       ((index++))
       [[ $update -ne 0 ]] && progress2 "Currently importing file $index of $files. Skipped: $skip files" $count
-      file="${line:$name}"
+      file="${line#*\*}"
       if [[ -f $file ]]; then
         ((count++))
         key=${line:0:$code}
         declare -a filestat=($(stat -c "%Y %s" "$file"))
         filedate=${filestat[0]}
         filesize=${filestat[1]}
-        setfattr -n user.$hash -v "$key" "$file"
-        setfattr -n user.scandate -v "$scandate" "$file"
-        setfattr -n user.filedate -v "$filedate" "$file"
-        setfattr -n user.filesize -v "$filesize" "$file"
+        setfattr -n user.$hash -v "$key $filesize $filedate $scandate" "$file"
       else
         ((skip++))
         echo "$file not found" >>$tmpfile.2
@@ -729,21 +722,19 @@ c|C)
     while read -r line; do
       ((index++))
       [[ $update -ne 0 ]] && progress "Currently processing file $index of $files. Skipped: $skip files. Found: $warning mismatches, $bad corruptions" $count
-      file="${line:$name}"
+      file="${line#*\*}"
       if [[ -f $file ]]; then
         calculate_hash_and_filestat
         ((count++))
         if [[ $key != ${line:0:$code} ]]; then
-          filedato=$(getfattr -n user.filedate --only-values --absolute-names "$file" 2>/dev/null)
-          filesizo=$(getfattr -n user.filesize --only-values --absolute-names "$file" 2>/dev/null)
+          declare -a attributes=($(getfattr -n user.$hash --only-values --absolute-names "$file" 2>/dev/null))
+          filedato=${attributes[2]}
+          filesizo=${attributes[1]}
           ((fail++))
           if [[ $filedato -ne $filedate || $filesizo -ne $filesize ]]; then
             ((warning++))
             if [[ $cmd == C ]]; then
-              setfattr -n user.$hash -v "$key" "$file"
-              setfattr -n user.scandate -v "$scandate" "$file"
-              setfattr -n user.filedate -v "$filedate" "$file"
-              setfattr -n user.filesize -v "$filesize" "$file"
+              setfattr -n user.$hash -v "$key $filesize $filedate $scandate" "$file"
             fi
             echo "${hash^^} hash key mismatch$text, $file was modified" >>$tmpfile.3
             log "warning: ${hash^^} hash key mismatch$text, $file was modified" 1
@@ -797,10 +788,17 @@ r|R)
     while read -r file; do
       ((index++))
       [[ $update -ne 0 ]] && progress2 "Currently clearing file $index of $files. Skipped: $skip files" $index
-      userdate=$(getfattr -n user.scandate --only-values --absolute-names "$file" 2>/dev/null)
+      declare -a attributes=($(getfattr -n user.$hash --only-values --absolute-names "$file" 2>/dev/null))
+      userdate=${attributes[3]}
       if [[ -z $userdate || $((userdate/86400)) -le $epoch ]]; then
         ((count++))
         setfattr -x user.$hash "$file" 2>/dev/null
+        # remove other hash values from this tool
+        [[ $cmd == R ]] && setfattr -x user.sha256 "$file" 2>/dev/null
+        [[ $cmd == R ]] && setfattr -x user.md5 "$file" 2>/dev/null
+        [[ $cmd == R ]] && setfattr -x user.blake2 "$file" 2>/dev/null
+        [[ $cmd == R ]] && setfattr -x user.blake3 "$file" 2>/dev/null
+        # remove outdated parameters
         [[ $cmd == R ]] && setfattr -x user.scandate "$file" 2>/dev/null
         [[ $cmd == R ]] && setfattr -x user.filedate "$file" 2>/dev/null
         [[ $cmd == R ]] && setfattr -x user.filesize "$file" 2>/dev/null
