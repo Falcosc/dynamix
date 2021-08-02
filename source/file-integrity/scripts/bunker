@@ -217,14 +217,20 @@ calculate_hash_and_filestat() {
   declare -a filestat=($(stat -c "%Y %s" "$file"))
   filedate=${filestat[0]}
   filesize=${filestat[1]}
-  if [[ $filesize -gt $large_file_size ]]; then
-    #use expenive async processing with wait only for files which are taking longer then one secound to process
-    $exec $argv "$file" >$tmpfile.0 &
-    waitfor $! "Calculating ${hash^^} hash key of ${rt}$file"
-    key=$(grep -Po '^\S+' $tmpfile.0)
-  else
+  if [[ $con -eq 0 ]]; then #don't waste ressources if no console output requested
     key=$($exec $argv "$file")
     key=${key%% *}
+  else
+    if [[ $filesize -gt $large_file_size ]]; then
+      #use expenive async processing with wait only for files which are taking longer then one secound to process
+      $exec $argv "$file" >$tmpfile.0 &
+      waitfor $! "Calculating ${hash^^} hash key of ${rt}$file"
+      key=$(grep -Po '^\S+' $tmpfile.0)
+    else
+      echo -en "\rCalculating ${hash^^} hash key of ${rt}$file..."
+      key=$($exec $argv "$file")
+      key=${key%% *}
+    fi
   fi
 }
 
