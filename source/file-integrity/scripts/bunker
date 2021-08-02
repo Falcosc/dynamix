@@ -705,10 +705,14 @@ c|C)
       ((index++))
       [[ $update -ne 0 ]] && progress "Currently processing file $index of $files. Skipped: $skip files. Found: $warning mismatches, $bad corruptions" $count
       file="${line#*\*}"
-      if [[ -f $file ]]; then
-        calculate_hash_and_filestat
+      if result=$($exec $argv "$file" 2>&1); then #don't support large file progress monitoring to improve performance. Use verify to see progress for large files
+        #only successfull if command could generate a key
+        key=${result%% *}
         ((count++))
         if [[ $key != ${line:0:$code} ]]; then
+          declare -a filestat=($(stat -c "%Y %s" "$file"))
+          filedate=${filestat[0]}
+          filesize=${filestat[1]}
           declare -a attributes=($(getfattr -n user.$hash --only-values --absolute-names "$file" 2>/dev/null))
           filedato=${attributes[2]}
           filesizo=${attributes[1]}
@@ -728,8 +732,13 @@ c|C)
         fi
       else
         ((skip++))
-        echo "$file is missing" >>$tmpfile.2
-        log "warning: $file is missing" 1
+        if [[ -f $file ]]; then
+          echo "$file error: $result" >>$tmpfile.2
+          log "warning: $file is error: $result" 1
+        else
+          echo "$file is missing" >>$tmpfile.2
+          log "warning: $file is missing" 1
+        fi
       fi
       [[ $timer -ne $SECONDS ]] && update
     done <$tmpfile
