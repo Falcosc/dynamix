@@ -40,6 +40,7 @@ foreach ($_POST as $key => $value) {
   }
 }
 $m = $_POST['#method'];
+$methodname = $m?str_replace(['-b2','-b3','-md5'],[_('BLAKE2'),_('BLAKE3'),_('MD5')],$m):_('SHA256');
 $n = $_POST['#notify'];
 $e = $_POST['#exclude'] ? "-E \"".regex($_POST['#exclude'])."\"" : "";
 $f = $_POST['#folders'] ? "-F \"".regex($_POST['#folders']).($_POST['#apple'] ? ",{$apple[0]}" : "")."\"" : "";
@@ -56,18 +57,18 @@ switch ($_POST['cmd']) {
     if ($_POST['#apple']) $key[] = $apple[1];
     $key = $key ? '! "'.implode(',', $key).'"' : '';
     foreach ($disks as $disk) {
-      exec("$bunker -aqx $m $l $e $f -f $path/$disk.export.hash /mnt/$disk $key >/dev/null &");
+      exec("$bunker -aqx $m $l $e $f -f $path/$disk.export.$methodname /mnt/$disk $key >/dev/null &");
     }
   break;
   case 'Export':
     foreach ($disks as $disk) {
-      exec("$bunker -eqx $m $l $e $f -f $path/$disk.export.hash /mnt/$disk >/dev/null &");
+      exec("$bunker -eqx $m $l $e $f -f $path/$disk.export.$methodname /mnt/$disk >/dev/null &");
     }
   break;
   case 'Check':
     foreach ($disks as $disk) {
-      if (file_exists("$path/$disk.export.hash")) {
-        exec("$bunker -Cqx $m $l $n -f $path/$disk.export.hash >/dev/null &");
+      if (file_exists("$path/$disk.export.$methodname")) {
+        exec("$bunker -Cqx $m $l $n -f $path/$disk.export.$methodname >/dev/null &");
       } else {
         file_put_contents("/var/tmp/$disk.tmp.end","100%#<span class='orange-text orange-button'>"._('Check')."</span> "._('Aborted - export file not found')."!#");
       }
@@ -75,8 +76,8 @@ switch ($_POST['cmd']) {
   break;
   case 'Import':
     foreach ($disks as $disk) {
-      if (file_exists("$path/$disk.export.hash")) {
-        exec("$bunker -iqx $m $l -f $path/$disk.export.hash >/dev/null &");
+      if (file_exists("$path/$disk.export.$methodname")) {
+        exec("$bunker -iqx $m $l -f $path/$disk.export.$methodname >/dev/null &");
       } else {
         file_put_contents("/var/tmp/$disk.tmp.end","100%#<span class='orange-text orange-button'>"._('Import')."</span> "._('Aborted - export file not found')."!#");
       }

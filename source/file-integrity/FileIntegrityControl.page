@@ -59,14 +59,14 @@ var disks = [];
 var bunker = [];
 
 function updater() {
-  $.post('/plugins/<?=$plugin?>/include/ProgressInfo.php',{disk:0,time:180},function(data){
+  $.post('/plugins/<?=$plugin?>/include/ProgressInfo.php',{disk:0,time:180,method:$cfg['method']},function(data){
     $('#disk-status').html(data);
     $('input[value="_(Find)_"]').prop('disabled',$('#export-status').html().search('green-text')==-1);
     setTimeout(updater,3000);
   });
 }
 function monitor(cmd,disk) {
-  $.post('/plugins/<?=$plugin?>/include/ProgressInfo.php',{disk:disk},function(data) {
+  $.post('/plugins/<?=$plugin?>/include/ProgressInfo.php',{disk:disk,method:$cfg['method']},function(data) {
     data = data.split('#');
     $('#disk'+disk).animate({width:data[0]},{step:function(){$('#disk'+disk).css('overflow','visible');}}).text(data[0]);
     $('#count'+disk).html(data[1]);

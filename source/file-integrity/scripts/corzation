@@ -24,7 +24,7 @@ function cleanup() {
 trap cleanup EXIT
 
 for disk in $hash; do
-  export=$path/export/$disk.export.hash
+  export=$path/export/$disk.export.$method
   if [[ -f $export ]]; then
     out=1
     echo -ne "<span class='warn'>Process hash file: $(basename $export)\n</span>"
@@ -44,7 +44,7 @@ for disk in $hash; do
     echo -ne "<span class='system'>Hash export to Corz conversion of $disk completed\n</span>"
   else
     out=0
-    echo -ne "<span class='login'>File $disk.export.hash not found\n</span>"
+    echo -ne "<span class='login'>File $disk.export.$method not found\n</span>"
   fi
 done
 [[ $out -eq 1 ]] && echo -e "\n<span class='array'>See folder <b>hash files</b> for the generated output</span>"
